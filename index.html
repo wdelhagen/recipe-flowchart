@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="yonder-default-mode" content="view">
+<title>Recipe Flowchart</title>
+<style>
+  :root {
+    --toolbar-bg: #ece7dc;
+    --toolbar-ink: #2a2820;
+    --toolbar-line: #d3ccb9;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { -webkit-font-smoothing: antialiased; background: var(--toolbar-bg); }
+
+  .chrome {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    padding: 12px 18px;
+    background: var(--toolbar-bg);
+    border-bottom: 1px solid var(--toolbar-line);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 13px;
+    color: var(--toolbar-ink);
+  }
+  .chrome .mark { font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; font-size: 12px; }
+  .chrome label { display: flex; align-items: center; gap: 6px; }
+  .chrome select {
+    font: inherit; font-size: 14px; padding: 6px 9px;
+    background: #fff; color: var(--toolbar-ink);
+    border: 1px solid var(--toolbar-line); border-radius: 8px;
+    min-width: 0; max-width: 100%;
+  }
+  @media (max-width: 640px) {
+    .chrome { gap: 8px 12px; padding: 10px 12px; }
+    .chrome label { flex: 1 1 auto; }
+    .chrome select { width: 100%; }
+  }
+
+  /* ============================= Plate ============================= */
+  .view-plate {
+    --paper:      #fbf8f1;
+    --paper-deep: #f4eee0;
+    --page:       #ece7dc;
+    --ink:        #1c1a14;
+    --ink-soft:   #5d584a;
+    --ink-faint:  #928b78;
+    --rule:       #c3b9a1;
+    --rule-soft:  #ddd4c0;
+    --accent:     #7a2f1d;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+    display: block;
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--serif);
+    padding: 20px 24px 72px;
+  }
+  .view-plate .plate {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: 0 1px 0 rgba(28,26,20,0.04), 0 14px 34px -22px rgba(28,26,20,0.5);
+    margin: 0 auto;
+    padding: 34px 38px 40px;
+  }
+  .view-plate h1 { font-size: 27px; font-weight: 400; letter-spacing: -0.005em; margin: 0; }
+  .view-plate .servings {
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 7px 0 0;
+  }
+  .view-plate .rule-major { border: 0; border-top: 2px solid var(--ink); margin: 14px 0 0; }
+  .view-plate .section-name {
+    font-family: var(--sans); font-size: 10.5px; font-weight: 600; letter-spacing: 0.19em;
+    text-transform: uppercase; color: var(--ink-soft); margin: 30px 0 9px;
+  }
+  .view-plate .section:first-of-type .section-name { margin-top: 24px; }
+  .view-plate table.plate-grid { border-collapse: collapse; table-layout: fixed; margin: 0; }
+  .view-plate .scroller { overflow-x: auto; overflow-y: hidden; overflow-anchor: none; }
+  .view-plate table.plate-grid td {
+    border: 1px solid var(--rule); padding: 9px 11px; vertical-align: middle;
+    line-height: 1.32; font-size: 14px; overflow-wrap: break-word; word-break: normal;
+  }
+  .view-plate td.void { border-color: var(--rule-soft); background: transparent; }
+  .view-plate td.prep {
+    text-align: center; font-style: italic; color: var(--ink-soft); font-size: 13.5px;
+    padding: 8px 11px; background: transparent;
+  }
+  .view-plate td.ing { background: var(--feed-tint, transparent); box-shadow: inset 3px 0 0 var(--feed, var(--rule-soft)); }
+  .view-plate td.ing .qty { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .view-plate td.ing .metric { color: var(--ink-faint); font-size: 0.87em; }
+  .view-plate td.ing .note { display: block; margin-top: 2px; font-size: 11px; font-style: italic; color: var(--accent); }
+  /* Full prose earns its keep at rest; once the section is actually being
+     scrolled, hand that width back to the diagram - short names only. */
+  .view-plate td.ing .lbl-short { display: none; }
+  .view-plate .scroller.collapsed td.ing .lbl-full,
+  .view-plate .scroller.collapsed td.ing .note { display: none; }
+  .view-plate .scroller.collapsed td.ing .lbl-short { display: inline; }
+  .view-plate td.ing.carried { box-shadow: inset 5px 0 0 var(--feed, var(--accent)); }
+  .view-plate td.void.trail { background: var(--trail-tint, transparent); }
+  .view-plate td.step { background: var(--step-tint, var(--paper-deep)); text-align: center; }
+  .view-plate td.step .action { display: block; }
+  .view-plate td.step .detail {
+    display: block; margin-top: 3px; font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums;
+  }
+  .view-plate td.step.finish { background: var(--ink); color: var(--paper); box-shadow: inset 3px 0 0 var(--step, transparent); }
+  .view-plate td.step.finish .action {
+    font-family: var(--sans); font-size: 11.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  }
+  .view-plate td.step.finish .detail { color: #c8bfa8; }
+  .view-plate td.lit { background: #f0e4c8; }
+  .view-plate td.step.lit { background: #e8d9b4; }
+  .view-plate td.step.finish.lit { background: #2f2a1c; }
+  @media (max-width: 720px) {
+    .view-plate { padding: 14px 12px 48px; }
+    .view-plate .plate { padding: 22px 18px 26px; }
+    .view-plate h1 { font-size: 22px; }
+    .view-plate table.plate-grid td { padding: 6px 7px; font-size: 12px; line-height: 1.26; }
+    .view-plate td.ing .note { font-size: 10px; }
+    /* Vertical text buys width: the column only has to be as wide as the
+       font's own line thickness, and the table's row-height auto-sizing
+       (a real <table>, not JS-positioned) gives a long vertical word the
+       height it needs without any layout math on our end. */
+    .view-plate td.step {
+      padding: 6px 3px;
+      vertical-align: middle;
+    }
+    .view-plate td.step .action {
+      display: inline-block;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      white-space: nowrap;
+      letter-spacing: 0.01em;
+    }
+    .view-plate td.step .detail {
+      writing-mode: horizontal-tb;
+      font-size: 9.5px;
+      margin-top: 5px;
+      text-align: center;
+    }
+    .view-plate td.step.finish .action {
+      writing-mode: vertical-rl;
+      font-size: 10px;
+    }
+  }
+
+  /* ============================ Bracket ============================ */
+  .view-bracket {
+    --paper:   #fdfcfa;
+    --page:    #f2f0eb;
+    --ink:     #14130f;
+    --ink-2:   #56524a;
+    --ink-3:   #928d82;
+    --wire:    #9a9488;
+    --accent:  #8c2f39;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, monospace;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+    display: block;
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--serif);
+    padding: 20px 24px 72px;
+  }
+  .view-bracket .sheet {
+    background: var(--paper); border: 1px solid #e2ded4; margin: 0 auto; padding: 38px 40px 46px;
+    box-shadow: 0 14px 34px -26px rgba(20,19,15,0.55);
+  }
+  .view-bracket h1 { font-size: 28px; font-weight: 400; margin: 0; letter-spacing: -0.008em; }
+  .view-bracket .servings {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-3); margin: 8px 0 0;
+  }
+  .view-bracket .rule { border: 0; border-top: 1px solid var(--ink); margin: 16px 0 0; }
+  .view-bracket .sec-name {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--ink-2); margin: 34px 0 4px;
+  }
+  .view-bracket .prep { font-style: italic; font-size: 13px; color: var(--ink-2); margin: 0 0 4px; }
+  .view-bracket .prep span::after { content: " · "; color: var(--ink-3); font-style: normal; }
+  .view-bracket .prep span:last-child::after { content: ""; }
+  .view-bracket .scroller { overflow-x: auto; overflow-y: hidden; overflow-anchor: none; }
+  .view-bracket .diagram { position: relative; margin-top: 12px; }
+  .view-bracket .ings { position: absolute; left: 0; top: 0; }
+  .view-bracket .ing {
+    text-align: right; padding: 7px 10px 7px 8px; line-height: 1.25;
+    transition: opacity .12s ease, background .15s ease; position: relative;
+    background: var(--feed-tint, transparent);
+    border-radius: 6px;
+  }
+  .view-bracket .ing::after {
+    content: ""; position: absolute; right: 0; top: 4px; bottom: 4px; width: 3px;
+    border-radius: 2px; background: var(--feed, var(--wire)); opacity: .55;
+  }
+  .view-bracket .ing .name { font-size: 14px; display: block; overflow-wrap: break-word; }
+  .view-bracket .ing .amt {
+    display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.02em;
+    color: var(--ink-3); margin-top: 1px;
+  }
+  .view-bracket .ing .from { display: block; font-size: 10.5px; font-style: italic; color: var(--accent); margin-top: 1px; }
+  .view-bracket .ing .carryop {
+    display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--ink-2);
+  }
+  .view-bracket .ing .carryop::before { content: "↳ "; color: var(--ink-3); }
+  .view-bracket svg.wires { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  .view-bracket svg.wires path { fill: none; stroke: var(--wire); stroke-width: 1.1; stroke-linecap: round; transition: stroke .12s ease, opacity .12s ease; }
+  .view-bracket .op {
+    position: absolute; transform: translateY(-50%); font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.11em; text-transform: uppercase; line-height: 1.5; color: var(--ink);
+    cursor: default; transition: opacity .12s ease; overflow-wrap: break-word;
+  }
+  .view-bracket .op .detail { display: block; text-transform: none; letter-spacing: 0.02em; font-size: 10px; color: var(--ink-3); }
+  .view-bracket .op.finish { font-weight: 700; }
+  .view-bracket .op.finish .detail { opacity: .78; }
+  .view-bracket .diagram.probing .ing, .view-bracket .diagram.probing .op { opacity: .2; }
+  .view-bracket .diagram.probing svg.wires path { opacity: .12; }
+  .view-bracket .diagram.probing .ing.lit, .view-bracket .diagram.probing .op.lit { opacity: 1; }
+  .view-bracket .diagram.probing svg.wires path.lit { opacity: 1; }
+  @media (max-width: 720px) {
+    .view-bracket { padding: 14px 12px 48px; }
+    .view-bracket .sheet { padding: 24px 16px 30px; }
+    .view-bracket h1 { font-size: 22px; }
+    .view-bracket .ing .name { font-size: 13px; }
+  }
+
+  /* ============================= Ribbon ============================= */
+  .view-ribbon {
+    --paper:  #fbfaf7;
+    --page:   #efece4;
+    --ink:    #1c1a15;
+    --ink-2:  #5c584e;
+    --ink-3:  #928d80;
+    --hair:   #e1ddd0;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    display: block;
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--sans);
+    padding: 20px 16px 72px;
+  }
+  .view-ribbon .sheet {
+    background: var(--paper); border: 1px solid var(--hair); border-radius: 18px;
+    margin: 0 auto; padding: 26px 8px 30px 22px;
+    box-shadow: 0 1px 2px rgba(20,19,15,.05), 0 16px 34px -26px rgba(20,19,15,.5);
+  }
+  .view-ribbon .head { padding-right: 22px; }
+  .view-ribbon h1 { font-family: var(--serif); font-size: 27px; font-weight: 400; margin: 0; }
+  .view-ribbon .servings { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin: 7px 0 0; }
+  .view-ribbon .sec-name {
+    font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-2); margin: 26px 0 4px; padding-right: 22px;
+  }
+  .view-ribbon .sec-block:first-of-type .sec-name { margin-top: 18px; }
+  .view-ribbon .prep { font-style: italic; font-size: 13px; color: var(--ink-2); margin: 0 0 4px; padding-right: 22px; }
+  .view-ribbon .prep span::after { content: " · "; color: var(--ink-3); font-style: normal; }
+  .view-ribbon .prep span:last-child::after { content: ""; }
+
+  /* The fade lives on a wrapper OUTSIDE the single shared scroller, not as a
+     pseudo-element inside it - a fade painted inside the scrolling content is
+     itself scrolled content and cannot act as a fixed edge indicator. Kept
+     narrow deliberately: it is a hint, not a frame, and every pixel of width
+     it claims is horizontal room the diagram doesn't get. */
+  .scroll-wrap { position: relative; }
+  .scroll-wrap.right-fade::after, .scroll-wrap.left-fade::before {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 14px; pointer-events: none; z-index: 4;
+  }
+  .scroll-wrap.right-fade::after { right: 0; background: linear-gradient(to right, transparent, var(--paper)); }
+  .scroll-wrap.left-fade::before { left: 0; background: linear-gradient(to left, transparent, var(--paper)); }
+
+  /* overflow-anchor:none matters here - the diagram is built in several async
+     DOM-mutating steps, and without this the browser's scroll anchoring can
+     silently shift scrollLeft away from 0 as those mutations land. */
+  .view-ribbon .scroller { overflow-x: auto; overflow-y: hidden; overflow-anchor: none; }
+
+  .view-ribbon .row { display: flex; align-items: flex-start; }
+  .view-ribbon .ings-sticky {
+    position: sticky; left: 0; z-index: 3; flex: 0 0 auto;
+    background: var(--paper);
+    transition: width .18s ease;
+  }
+  .view-ribbon .row { transition: width .18s ease; }
+  .view-ribbon .canvas { position: relative; flex: 0 0 auto; }
+
+  .view-ribbon .ing-row {
+    padding: 7px 13px 7px 8px; line-height: 1.25; position: relative; text-align: right;
+    display: flex; flex-direction: column; justify-content: center;
+    background: var(--feed-tint, transparent);
+    border-radius: 8px;
+    transition: background .15s ease;
+  }
+  .view-ribbon .ing-row::after {
+    content: ""; position: absolute; right: 0; top: 6px; bottom: 6px; width: 4px;
+    border-radius: 2px; background: var(--feed, var(--hair)); transition: background .15s ease;
+  }
+  .view-ribbon .ing-row .r-name {
+    font-size: 14px; display: block; overflow-wrap: break-word; transition: color .15s ease;
+  }
+  .view-ribbon .ing-row .r-amt { display: block; font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-top: 1px; }
+  .view-ribbon .ing-row.is-op .r-name {
+    font-weight: 650; text-transform: uppercase; font-size: 11.5px; letter-spacing: 0.04em;
+  }
+  .view-ribbon .ing-row.is-finish .r-name { color: var(--ink); }
+
+  .view-ribbon svg.ribbons { position: absolute; left: 0; top: 0; overflow: visible; }
+  .view-ribbon svg.ribbons path { fill: none; stroke-linecap: round; }
+  .view-ribbon .pill {
+    position: absolute; transform: translate(0, -50%); border-radius: 999px; padding: 8px 15px;
+    font-size: 12.5px; font-weight: 650; line-height: 1.3; text-align: center; color: #fff;
+    white-space: normal; overflow-wrap: break-word;
+  }
+  .view-ribbon .pill .detail { display: block; font-weight: 500; font-size: 10.5px; opacity: .82; font-variant-numeric: tabular-nums; }
+  .view-ribbon .pill.finish { background: var(--ink) !important; box-shadow: 0 0 0 3px var(--ring, transparent); }
+
+  @media (max-width: 720px) {
+    .view-ribbon { padding: 14px 8px 48px; }
+    .view-ribbon .sheet { padding: 18px 4px 22px 14px; border-radius: 14px; }
+    .view-ribbon .head, .view-ribbon .sec-name, .view-ribbon .prep { padding-right: 14px; }
+    .view-ribbon h1 { font-size: 21px; }
+    .view-ribbon .pill { font-size: 11.5px; padding: 7px 12px; }
+    .view-ribbon .pill .detail { font-size: 9.5px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="chrome">
+  <span class="mark">Recipe Flowchart</span>
+  <label>View
+    <select id="viewPicker" aria-label="View type">
+      <option value="plate">Plate</option>
+      <option value="ribbon">Ribbon</option>
+      <option value="bracket">Bracket</option>
+    </select>
+  </label>
+  <label>Recipe
+    <select id="recipePicker" aria-label="Recipe"></select>
+  </label>
+</div>
+
+<div id="out"></div>
+
+<script type="module">
+/* ---------------------------------------------------------------------
+   Recipe data (inlined - this route serves a single file, not a static
+   directory, so there is nothing to fetch relative to it).
+--------------------------------------------------------------------- */
+const RECIPES = {"brownies": {"title": "Brownies", "sections": [{"prep": ["Butter and flour an 8x8-in pan", "Preheat oven to 350\u00b0F (170\u00b0C)"], "nodes": [{"id": "butter", "type": "ingredient", "label": "unsalted butter", "qty": "4 oz", "metric": "115 g", "short": "butter"}, {"id": "sugar", "type": "ingredient", "label": "sugar", "qty": "1 cup", "metric": "200 g", "short": "sugar"}, {"id": "vanilla", "type": "ingredient", "label": "vanilla extract", "qty": "1/4 tsp.", "metric": "2.5 mL", "short": "vanilla"}, {"id": "coffee", "type": "ingredient", "label": "fresh brewed espresso or very strong coffee", "qty": "1 shot (4 Tbs.)", "metric": "60 mL", "short": "coffee"}, {"id": "eggs", "type": "ingredient", "label": "large eggs", "qty": "2", "metric": "100 g", "short": "eggs"}, {"id": "flour", "type": "ingredient", "label": "all-purpose flour", "qty": "1/2 cup", "metric": "80 g", "short": "flour"}, {"id": "cocoa", "type": "ingredient", "label": "Hershey's cocoa powder", "qty": "1/3 cup", "metric": "80 g", "short": "cocoa"}, {"id": "soda", "type": "ingredient", "label": "baking soda", "qty": "1/4 tsp.", "metric": "1.3 g", "short": "soda"}, {"id": "salt", "type": "ingredient", "label": "table salt", "qty": "1/4 tsp.", "metric": "1.5 g", "short": "salt"}, {"id": "melt_butter", "type": "op", "label": "melt", "inputs": ["butter"]}, {"id": "mix1", "type": "op", "label": "mix", "inputs": ["melt_butter", "sugar", "vanilla", "coffee"]}, {"id": "mix2", "type": "op", "label": "mix", "inputs": ["mix1", "eggs"]}, {"id": "fold1", "type": "op", "label": "fold in", "inputs": ["mix2", "flour", "cocoa", "soda", "salt"]}, {"id": "bake1", "type": "op", "label": "bake 350\u00b0F (170\u00b0C)\n30 to 40 min", "inputs": ["fold1"]}]}]}, "banana-nut-bread": {"title": "Banana Nut Bread", "servings": "about 10 servings", "sections": [{"prep": ["Butter and flour a loaf pan", "Preheat oven to 350\u00b0F (170\u00b0C)"], "nodes": [{"id": "bananas", "type": "ingredient", "label": "ripe bananas", "qty": "2 large", "metric": "250 g", "short": "bananas"}, {"id": "butter", "type": "ingredient", "label": "butter", "qty": "6 Tbs.", "metric": "90 mL", "short": "butter"}, {"id": "vanilla", "type": "ingredient", "label": "vanilla extract", "qty": "1 tsp.", "metric": "5 mL", "short": "vanilla"}, {"id": "eggs", "type": "ingredient", "label": "large eggs", "qty": "2", "short": "eggs"}, {"id": "flour", "type": "ingredient", "label": "all-purpose flour", "qty": "1-1/3 cups", "metric": "167 g", "short": "flour"}, {"id": "sugar", "type": "ingredient", "label": "sugar", "qty": "2/3 cup", "metric": "130 g", "short": "sugar"}, {"id": "soda", "type": "ingredient", "label": "baking soda", "qty": "1/2 tsp.", "metric": "2.3 g", "short": "soda"}, {"id": "powder", "type": "ingredient", "label": "baking powder", "qty": "1/4 tsp.", "metric": "1.2 g", "short": "powder"}, {"id": "salt", "type": "ingredient", "label": "salt", "qty": "1/2 tsp.", "metric": "3 g", "short": "salt"}, {"id": "walnuts", "type": "ingredient", "label": "chopped walnuts", "qty": "1/2 cup", "metric": "70 g", "short": "walnuts"}, {"id": "mash_bananas", "type": "op", "label": "mash", "inputs": ["bananas"]}, {"id": "melt_butter", "type": "op", "label": "melt", "inputs": ["butter"]}, {"id": "mash_smooth", "type": "op", "label": "mash until smooth", "inputs": ["mash_bananas", "melt_butter", "vanilla"]}, {"id": "beat_eggs", "type": "op", "label": "lightly beat", "inputs": ["eggs"]}, {"id": "whisk_dry", "type": "op", "label": "whisk", "inputs": ["flour", "sugar", "soda", "powder", "salt"]}, {"id": "fold1", "type": "op", "label": "fold", "inputs": ["mash_smooth", "beat_eggs", "whisk_dry", "walnuts"]}, {"id": "bake1", "type": "op", "label": "bake 350\u00b0F (170\u00b0C)\n55 min.", "inputs": ["fold1"]}, {"id": "cool_pan", "type": "op", "label": "cool 10 min. in pan", "inputs": ["bake1"]}, {"id": "cool_rack", "type": "op", "label": "cool on wire rack", "inputs": ["cool_pan"]}]}]}, "macaroni-and-cheese": {"title": "Macaroni and Cheese Bake", "servings": "serves 12", "sections": [{"name": "Boiled Macaroni", "nodes": [{"id": "water", "type": "ingredient", "label": "water", "qty": "4 qt.", "metric": "4 L", "short": "water"}, {"id": "salt1", "type": "ingredient", "label": "table salt", "qty": "1 Tbs.", "metric": "18 g", "short": "salt"}, {"id": "macaroni_raw", "type": "ingredient", "label": "elbow macaroni", "qty": "1 lb.", "metric": "450 g", "short": "macaroni"}, {"id": "boil_water", "type": "op", "label": "boil", "inputs": ["water"]}, {"id": "dissolve_salt", "type": "op", "label": "dissolve", "inputs": ["salt1"]}, {"id": "boil_al_dente", "type": "op", "label": "boil until al dente", "inputs": ["boil_water", "dissolve_salt", "macaroni_raw"]}, {"id": "drain", "type": "op", "label": "reserve 1/2 cup water and drain & rinse macaroni", "inputs": ["boil_al_dente"]}]}, {"name": "Macaroni and Cheese Bake", "prep": ["Preheat oven to 350\u00b0F (175\u00b0C)"], "nodes": [{"id": "butter1", "type": "ingredient", "label": "melted butter", "qty": "4 Tbs.", "metric": "55 g", "short": "butter"}, {"id": "flour", "type": "ingredient", "label": "all-purpose flour", "qty": "5 Tbs.", "metric": "45 g", "short": "flour"}, {"id": "milk", "type": "ingredient", "label": "evaporated milk", "qty": "3 12-oz. cans", "metric": "1 L", "short": "milk"}, {"id": "nutmeg", "type": "ingredient", "label": "ground nutmeg", "qty": "1/8 tsp.", "metric": "0.3 g", "short": "nutmeg"}, {"id": "mustard", "type": "ingredient", "label": "ground mustard seed", "qty": "1 tsp.", "metric": "3.3 g", "short": "mustard"}, {"id": "salt2", "type": "ingredient", "label": "table salt", "qty": "2 tsp.", "metric": "12 g", "short": "salt"}, {"id": "hotsauce", "type": "ingredient", "label": "hot sauce", "qty": "1 teaspoon", "metric": "5 mL", "short": "hot sauce"}, {"id": "cheese_american", "type": "ingredient", "label": "American cheese", "qty": "5 oz.", "metric": "140 g", "short": "American"}, {"id": "cheese_cheddar", "type": "ingredient", "label": "extra sharp cheddar cheese", "qty": "8 oz.", "metric": "225 g", "short": "cheddar"}, {"id": "cheese_jack", "type": "ingredient", "label": "Monterey Jack cheese", "qty": "3 oz.", "metric": "85 g", "short": "jack"}, {"id": "pasta_water", "type": "ingredient", "label": "reserve pasta water", "qty": "1/2 cup", "note": "from Boiled Macaroni", "short": "pasta water"}, {"id": "macaroni_cooked", "type": "ingredient", "label": "cooked macaroni", "note": "from Boiled Macaroni", "short": "macaroni"}, {"id": "bread", "type": "ingredient", "label": "white sandwich bread", "qty": "4 slices", "short": "bread"}, {"id": "butter2", "type": "ingredient", "label": "melted butter", "qty": "4 Tbs.", "metric": "55 g", "short": "butter"}, {"id": "parmesan", "type": "ingredient", "label": "grated Parmesan cheese", "qty": "1/4 cup", "metric": "35 g", "short": "parmesan"}, {"id": "roux", "type": "op", "label": "cook while stirring until light brown (1 min.)", "inputs": ["butter1", "flour"]}, {"id": "stir_milk", "type": "op", "label": "stir in slowly", "inputs": ["roux", "milk"]}, {"id": "stir_seasoning", "type": "op", "label": "stir in", "inputs": ["stir_milk", "nutmeg", "mustard", "salt2", "hotsauce"]}, {"id": "thicken", "type": "op", "label": "remove from heat when thickened (4 min.)", "inputs": ["stir_seasoning"]}, {"id": "grate_cheese", "type": "op", "label": "grate", "inputs": ["cheese_american", "cheese_cheddar", "cheese_jack"]}, {"id": "melt_cheese", "type": "op", "label": "stir in until melted", "inputs": ["thicken", "grate_cheese"]}, {"id": "coat_macaroni", "type": "op", "label": "stir in until coated", "inputs": ["melt_cheese", "pasta_water", "macaroni_cooked"]}, {"id": "pour_pan", "type": "op", "label": "pour into 9x13-in. pan", "inputs": ["coat_macaroni"]}, {"id": "breadcrumbs", "type": "op", "label": "pulse into breadcrumbs", "inputs": ["bread", "butter2", "parmesan"]}, {"id": "top", "type": "op", "label": "top", "inputs": ["pour_pan", "breadcrumbs"]}, {"id": "bake2", "type": "op", "label": "bake 25 min.\n350\u00b0F (175\u00b0C)", "inputs": ["top"]}, {"id": "rest", "type": "op", "label": "let rest 10 min.", "inputs": ["bake2"]}]}]}, "ramen-noodles": {"title": "38%-Hydration, Whole Wheat Homemade Ramen Noodles", "servings": "4 servings", "sections": [{"name": "Noodle Dough", "nodes": [{"id": "baking_soda", "type": "ingredient", "label": "baked baking soda", "qty": "2 g", "short": "baked soda"}, {"id": "water", "type": "ingredient", "label": "water", "qty": "152 mL", "short": "water"}, {"id": "potassium_carbonate", "type": "ingredient", "label": "potassium carbonate", "qty": "4 g", "short": "carbonate"}, {"id": "salt", "type": "ingredient", "label": "Diamond Crystal kosher salt", "qty": "4 g", "short": "salt"}, {"id": "bread_flour", "type": "ingredient", "label": "King Arthur bread flour", "qty": "364 g", "short": "bread flour"}, {"id": "whole_wheat_flour", "type": "ingredient", "label": "King Arthur whole wheat flour", "qty": "32 g", "short": "wheat flour"}, {"id": "vital_wheat_gluten", "type": "ingredient", "label": "vital wheat gluten", "qty": "4 g", "short": "gluten"}, {"id": "potato_starch", "type": "ingredient", "label": "potato starch or cornstarch, for dusting", "short": "starch"}, {"id": "dissolve_alkalized", "type": "op", "label": "dissolve into alkalized water", "inputs": ["water", "baking_soda", "potassium_carbonate", "salt"]}, {"id": "process_flours", "type": "op", "label": "combine & process until mixed", "inputs": ["bread_flour", "whole_wheat_flour", "vital_wheat_gluten"]}, {"id": "form_dough", "type": "op", "label": "add water gradually; run until pebbly and forms a ball", "inputs": ["process_flours", "dissolve_alkalized"]}, {"id": "compress_chill", "type": "op", "label": "compress into a plank; refrigerate 6 to 24 hrs", "inputs": ["form_dough"]}, {"id": "temper", "type": "op", "label": "rest at room temp 30 min", "inputs": ["compress_chill"]}, {"id": "laminate", "type": "op", "label": "divide into 4; roll & laminate through pasta roller", "inputs": ["temper"]}, {"id": "rest_sheets", "type": "op", "label": "rest dough sheets 30 min", "inputs": ["laminate"]}, {"id": "cut_noodles", "type": "op", "label": "roll to final thickness; cut into noodles", "inputs": ["rest_sheets"]}, {"id": "dust", "type": "op", "label": "dust with starch; nest", "inputs": ["cut_noodles", "potato_starch"]}, {"id": "age", "type": "op", "label": "refrigerate at least overnight (up to 4-7 days)", "inputs": ["dust"]}]}, {"name": "Cooking the Noodles", "nodes": [{"id": "noodles", "type": "ingredient", "label": "noodles", "note": "from Noodle Dough", "short": "noodles"}, {"id": "boiling_water", "type": "ingredient", "label": "unsalted water", "short": "water"}, {"id": "boil", "type": "op", "label": "bring to a rolling boil", "inputs": ["boiling_water"]}, {"id": "cook", "type": "op", "label": "cook, stirring, about 2 min", "inputs": ["boil", "noodles"]}, {"id": "drain", "type": "op", "label": "drain thoroughly", "inputs": ["cook"]}, {"id": "serve", "type": "op", "label": "add to hot ramen broth; serve", "inputs": ["drain"]}]}]}, "sourdough-donuts": {"title": "Best Fried Sourdough Donuts (with Vanilla Glaze)", "servings": "10 donuts", "sections": [{"nodes": [{"id": "starter", "type": "ingredient", "label": "sourdough starter", "qty": "100 g", "short": "starter"}, {"id": "buttermilk", "type": "ingredient", "label": "buttermilk", "qty": "180 g", "short": "buttermilk"}, {"id": "egg_yolks", "type": "ingredient", "label": "egg yolks", "qty": "3", "short": "yolks"}, {"id": "sugar", "type": "ingredient", "label": "sugar", "qty": "40 g", "short": "sugar"}, {"id": "bread_flour", "type": "ingredient", "label": "bread flour", "qty": "400 g", "short": "flour"}, {"id": "butter", "type": "ingredient", "label": "butter", "qty": "60 g", "short": "butter"}, {"id": "salt", "type": "ingredient", "label": "salt", "qty": "5 g", "short": "salt"}, {"id": "whisk_wet", "type": "op", "label": "whisk into a foamy batter", "inputs": ["starter", "buttermilk", "egg_yolks", "sugar"]}, {"id": "shaggy_dough", "type": "op", "label": "add flour & salt; mix to a shaggy dough", "inputs": ["whisk_wet", "bread_flour", "salt"]}, {"id": "knead1", "type": "op", "label": "knead 1 to 2 min until smooth", "inputs": ["shaggy_dough"]}, {"id": "rest_knead_butter", "type": "op", "label": "rest 5 min; knead in butter", "inputs": ["knead1", "butter"]}, {"id": "bulk_ferment", "type": "op", "label": "bulk ferment at room temp until risen ~50%", "inputs": ["rest_knead_butter"]}, {"id": "roll_out", "type": "op", "label": "roll into a ~25cm (10in) square", "inputs": ["bulk_ferment"]}, {"id": "cut_donuts", "type": "op", "label": "cut into donuts", "inputs": ["roll_out"]}, {"id": "proof", "type": "op", "label": "proof until full and puffy", "inputs": ["cut_donuts"]}, {"id": "fry", "type": "op", "label": "fry ~2 min per side at 180\u00b0C (350\u00b0F)", "inputs": ["proof"]}, {"id": "powdered_sugar", "type": "ingredient", "label": "powdered sugar", "qty": "125 g", "short": "powd. sugar"}, {"id": "milk", "type": "ingredient", "label": "milk", "qty": "30 g", "short": "milk"}, {"id": "vanilla", "type": "ingredient", "label": "vanilla extract", "qty": "5 g", "short": "vanilla"}, {"id": "mix_glaze", "type": "op", "label": "mix until smooth", "inputs": ["powdered_sugar", "milk", "vanilla"]}, {"id": "glaze_donuts", "type": "op", "label": "dip donuts in glaze; set on wire rack", "inputs": ["fry", "mix_glaze"]}]}]}, "lao-crispy-rice-salad": {"title": "Lao Crispy Rice Salad (Nam Khao)", "servings": "6 servings", "sections": [{"name": "Crispy Rice", "nodes": [{"id": "sticky_rice", "type": "ingredient", "label": "sticky glutinous rice, soaked 4+ hrs", "qty": "3 cups", "short": "rice"}, {"id": "curry_paste", "type": "ingredient", "label": "Thai red curry paste", "qty": "3 Tbs.", "short": "curry paste"}, {"id": "garlic", "type": "ingredient", "label": "garlic, minced", "qty": "2 cloves", "short": "garlic"}, {"id": "shallot", "type": "ingredient", "label": "shallot, minced", "qty": "1", "short": "shallot"}, {"id": "lime_leaves", "type": "ingredient", "label": "kaffir lime leaves, sliced thinly", "qty": "3-4", "short": "lime leaves"}, {"id": "sugar", "type": "ingredient", "label": "sugar", "qty": "4 tsp.", "short": "sugar"}, {"id": "fish_sauce", "type": "ingredient", "label": "fish sauce", "qty": "4 tsp.", "short": "fish sauce"}, {"id": "egg", "type": "ingredient", "label": "egg", "qty": "1", "short": "egg"}, {"id": "soak_drain", "type": "op", "label": "soak 4+ hrs; drain", "inputs": ["sticky_rice"]}, {"id": "steam", "type": "op", "label": "steam 15 min, flip, steam 15 min more until translucent", "inputs": ["soak_drain"]}, {"id": "rest_warm", "type": "op", "label": "rest covered 15 to 30 min until warm & sticky", "inputs": ["steam"]}, {"id": "mix_rice", "type": "op", "label": "mix well", "inputs": ["rest_warm", "curry_paste", "lime_leaves", "garlic", "shallot", "sugar", "fish_sauce", "egg"]}, {"id": "shape", "type": "op", "label": "form into balls or patties", "inputs": ["mix_rice"]}, {"id": "fry", "type": "op", "label": "deep fry 350\u00b0F (176\u00b0C), 3 min until golden", "inputs": ["shape"]}, {"id": "cool", "type": "op", "label": "cool", "inputs": ["fry"]}]}, {"name": "Nuoc Cham Dressing", "nodes": [{"id": "sugar2", "type": "ingredient", "label": "sugar", "qty": "2 1/2 Tbs.", "short": "sugar"}, {"id": "hot_water", "type": "ingredient", "label": "hot water", "qty": "1/3 cup", "short": "hot water"}, {"id": "fish_sauce2", "type": "ingredient", "label": "fish sauce", "qty": "2 Tbs.", "short": "fish sauce"}, {"id": "lime_juice", "type": "ingredient", "label": "lime juice", "qty": "1/2 lime", "short": "lime juice"}, {"id": "rice_vinegar", "type": "ingredient", "label": "rice vinegar", "qty": "1 1/2 Tbs.", "short": "vinegar"}, {"id": "garlic2", "type": "ingredient", "label": "garlic, minced", "qty": "1-2 cloves", "short": "garlic"}, {"id": "chili", "type": "ingredient", "label": "red birdseye chili, sliced", "qty": "1", "short": "chili"}, {"id": "dissolve_sugar", "type": "op", "label": "combine sugar & hot water; stir to dissolve", "inputs": ["sugar2", "hot_water"]}, {"id": "combine_dressing", "type": "op", "label": "add remaining ingredients; chill", "inputs": ["dissolve_sugar", "fish_sauce2", "lime_juice", "rice_vinegar", "garlic2", "chili"]}]}, {"name": "Assembly", "nodes": [{"id": "crispy_rice", "type": "ingredient", "label": "crispy rice balls", "note": "from Crispy Rice", "short": "rice balls"}, {"id": "som_moo", "type": "ingredient", "label": "som moo (fermented meat sausage)", "short": "som moo"}, {"id": "mint", "type": "ingredient", "label": "mint", "short": "mint"}, {"id": "basil", "type": "ingredient", "label": "basil", "short": "basil"}, {"id": "cilantro", "type": "ingredient", "label": "cilantro", "short": "cilantro"}, {"id": "fried_onions", "type": "ingredient", "label": "fried onions", "short": "onions"}, {"id": "peanuts", "type": "ingredient", "label": "toasted peanuts", "short": "peanuts"}, {"id": "rice_powder", "type": "ingredient", "label": "toasted rice powder", "short": "rice powder"}, {"id": "shallots_soaked", "type": "ingredient", "label": "shallots, sliced & soaked in cold water", "short": "shallots"}, {"id": "green_onions", "type": "ingredient", "label": "green onions, chopped", "short": "onions"}, {"id": "chili2", "type": "ingredient", "label": "birdseye chili peppers", "short": "chili"}, {"id": "lime_juice2", "type": "ingredient", "label": "lime juice", "short": "lime juice"}, {"id": "dressing", "type": "ingredient", "label": "nuoc cham dressing", "note": "from Nuoc Cham Dressing", "short": "dressing"}, {"id": "lettuce", "type": "ingredient", "label": "lettuce leaves, for serving", "short": "lettuce"}, {"id": "break_up", "type": "op", "label": "break up rice balls & som moo", "inputs": ["crispy_rice", "som_moo"]}, {"id": "combine_salad", "type": "op", "label": "add toppings & dressing; mix well", "inputs": ["break_up", "mint", "basil", "cilantro", "fried_onions", "peanuts", "rice_powder", "shallots_soaked", "green_onions", "chili2", "lime_juice2", "dressing"]}, {"id": "serve", "type": "op", "label": "serve with lettuce leaves", "inputs": ["combine_salad", "lettuce"]}]}]}}
+;
+const RECIPE_KEYS = Object.keys(RECIPES);
+
+/* ---------------------------------------------------------------------
+   Shared DAG math (identical across all three views): a recipe section is
+   a DAG rendered as ingredient rows and operation nodes; every op's extent
+   is exactly the contiguous range of ingredient rows it consumes.
+--------------------------------------------------------------------- */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function splitLabel(label) {
+  const lines = String(label).split("\n");
+  return { action: lines[0], detail: lines.slice(1).join(" ") };
+}
+
+function indexSection(section) {
+  const byId = {};
+  section.nodes.forEach(n => (byId[n.id] = n));
+
+  const ingredients = section.nodes.filter(n => n.type === "ingredient");
+  const ops = section.nodes.filter(n => n.type === "op");
+
+  const rowOf = {};
+  ingredients.forEach((n, i) => (rowOf[n.id] = i));
+
+  const rangeCache = {};
+  function range(id) {
+    if (rangeCache[id]) return rangeCache[id];
+    const node = byId[id];
+    if (!node) throw new Error("Unknown node id referenced: " + id);
+    let r;
+    if (node.type === "ingredient") {
+      r = [rowOf[id], rowOf[id]];
+    } else {
+      let lo = Infinity, hi = -Infinity;
+      (node.inputs || []).forEach(inId => {
+        const ir = range(inId);
+        lo = Math.min(lo, ir[0]);
+        hi = Math.max(hi, ir[1]);
+      });
+      r = [lo, hi];
+    }
+    rangeCache[id] = r;
+    return r;
+  }
+
+  const colCache = {};
+  function col(id) {
+    if (colCache[id] !== undefined) return colCache[id];
+    const node = byId[id];
+    const c = node.type === "ingredient"
+      ? 0
+      : 1 + Math.max(0, ...(node.inputs || []).map(col));
+    colCache[id] = c;
+    return c;
+  }
+
+  section.nodes.forEach(n => { range(n.id); col(n.id); });
+
+  const maxCol = Math.max(0, ...section.nodes.map(n => col(n.id)));
+
+  const consumed = new Set();
+  ops.forEach(o => (o.inputs || []).forEach(id => consumed.add(id)));
+  const terminals = section.nodes.filter(n => !consumed.has(n.id) && n.type === "op");
+
+  // The one op that consumes a given node next. Each node is consumed by
+  // exactly one op in well-formed data; first consumer wins otherwise.
+  const consumedBy = {};
+  ops.forEach(o => (o.inputs || []).forEach(id => {
+    if (!(id in consumedBy)) consumedBy[id] = o.id;
+  }));
+
+  const upCache = {};
+  function upstream(id) {
+    if (upCache[id]) return upCache[id];
+    const set = new Set();
+    (byId[id].inputs || []).forEach(inId => {
+      set.add(inId);
+      upstream(inId).forEach(x => set.add(x));
+    });
+    upCache[id] = set;
+    return set;
+  }
+
+  return {
+    byId, ingredients, ops, rowOf, range, col, maxCol, consumedBy,
+    numRows: ingredients.length, terminals, upstream,
+    opsByCol: c => ops.filter(o => col(o.id) === c)
+  };
+}
+
+let _ctx = null;
+function measureText(text, font) {
+  if (!_ctx) _ctx = document.createElement("canvas").getContext("2d");
+  _ctx.font = font;
+  return _ctx.measureText(text).width;
+}
+function measureLabel(label, font) {
+  return Math.max(...String(label).split("\n").map(l => measureText(l, font)));
+}
+
+// A step's color is its own identity, not its column's - two unrelated steps
+// at the same pipeline depth (e.g. "grate" and "pulse into breadcrumbs", both
+// one hop from raw ingredients) must not share a hue.
+const STEP_PALETTE = [
+  "#3565b0", "#b0522f", "#3f8a5a", "#8250a8",
+  "#a87a1e", "#2f8f96", "#a83d63", "#5c6f2e"
+];
+function assignStepColors(ix) {
+  const ordered = ix.ops.slice().sort((a, b) => {
+    const ca = ix.col(a.id), cb = ix.col(b.id);
+    if (ca !== cb) return ca - cb;
+    return ix.range(a.id)[0] - ix.range(b.id)[0];
+  });
+  const opColor = {};
+  ordered.forEach((o, i) => { opColor[o.id] = STEP_PALETTE[i % STEP_PALETTE.length]; });
+
+  const feedColor = {};
+  ix.ops.forEach(o => {
+    (o.inputs || []).forEach(id => {
+      if (!(id in feedColor)) feedColor[id] = opColor[o.id];
+    });
+  });
+
+  return { opColor, feedColor };
+}
+
+function hexToRgba(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Shared by Plate and Ribbon: a scroller only actually scrolls when its
+// content is genuinely wider than its own box, which is content-dependent
+// (a dense recipe on a narrow phone) rather than tied to one specific view.
+function wireScrollFade(scroller, scrollWrap) {
+  const update = () => {
+    const max = scroller.scrollWidth - scroller.clientWidth;
+    scrollWrap.classList.toggle("right-fade", scroller.scrollLeft < max - 2);
+    scrollWrap.classList.toggle("left-fade", scroller.scrollLeft > 2);
+  };
+  scroller.scrollLeft = 0;
+  scroller.addEventListener("scroll", update, { passive: true });
+  requestAnimationFrame(() => { scroller.scrollLeft = 0; update(); });
+}
+
+/* =======================================================================
+   PLATE — tessellated table, exact-span rowspan cells, per-step color trail
+======================================================================= */
+const Plate = (() => {
+  const ING_FONT    = '14px "Iowan Old Style", Palatino, Georgia, serif';
+  const STEP_FONT   = '14px "Iowan Old Style", Palatino, Georgia, serif';
+  const FINISH_FONT = '600 11.5px ui-sans-serif, system-ui, sans-serif';
+  const FINISH_LETTER = 0.16;
+
+  function ingredientText(n) {
+    return [n.qty, n.metric ? `(${n.metric})` : "", n.label].filter(Boolean).join(" ");
+  }
+  function stepLabelWidth(label, finish) {
+    if (!finish) return measureLabel(label, STEP_FONT);
+    const { action, detail } = splitLabel(label);
+    const w = t => t ? measureText(t.toUpperCase(), FINISH_FONT) + t.length * 11.5 * FINISH_LETTER : 0;
+    return Math.max(w(action), w(detail));
+  }
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  const narrow = () => window.innerWidth <= 720;
+
+  function columnWeights(ix) {
+    const ingTarget = clamp(
+      Math.max(...ix.ingredients.map(n => measureText(ingredientText(n), ING_FONT))) / 2.15,
+      165, 275
+    );
+    const weights = [ingTarget];
+    // On mobile, step text runs vertically (see CSS) so a column only needs
+    // to be as wide as the font's own line thickness, not the word length -
+    // the table's normal row-height auto-sizing takes care of giving a
+    // vertical word the height it needs.
+    if (narrow()) {
+      for (let c = 1; c <= ix.maxCol; c++) {
+        const hasFinish = ix.opsByCol(c).some(o => ix.terminals.some(t => t.id === o.id));
+        weights.push(hasFinish ? 40 : 32);
+      }
+      return weights;
+    }
+    const CELL_PAD = 30, STEP_CAP = 190, STEP_FLOOR = 46;
+    for (let c = 1; c <= ix.maxCol; c++) {
+      const ops = ix.opsByCol(c);
+      if (!ops.length) { weights.push(STEP_FLOOR + CELL_PAD); continue; }
+      const widest = Math.max(...ops.map(o =>
+        stepLabelWidth(o.label, ix.terminals.some(t => t.id === o.id))
+      ));
+      weights.push(clamp(widest + CELL_PAD, STEP_FLOOR, STEP_CAP));
+    }
+    return weights;
+  }
+
+  function renderSection(section, sIdx, allSections) {
+    const ix = indexSection(section);
+    const { byId, range, col, maxCol, numRows } = ix;
+    const nCols = maxCol + 1;
+    const weights = columnWeights(ix);
+    const total = weights.reduce((a, b) => a + b, 0);
+    const { opColor, feedColor } = assignStepColors(ix);
+
+    const earlierNames = allSections.slice(0, sIdx).map(s => s.name).filter(Boolean);
+    const isCarried = n => n.note && earlierNames.some(name => n.note.includes(name));
+
+    let html = `<div class="section">`;
+    if (section.name) html += `<div class="section-name">${escapeHtml(section.name)}</div>`;
+
+    // Pixel widths, not percentages: a percentage column still shrinks a
+    // dense recipe's cells below a readable minimum on a narrow phone (every
+    // column pays an equal tax to fit the viewport, regardless of its own
+    // floor). Fixed widths hold each column at the size it actually needs;
+    // the scroll-wrap around this table is what absorbs the overflow instead.
+    html += `<div class="scroll-wrap"><div class="scroller">`;
+    html += `<table class="plate-grid" style="width:${total}px"><colgroup>`;
+    weights.forEach(w => { html += `<col style="width:${w}px">`; });
+    html += `</colgroup><tbody>`;
+
+    (section.prep || []).forEach(p => {
+      html += `<tr><td class="prep" colspan="${nCols}">${escapeHtml(p)}</td></tr>`;
+    });
+
+    const nodesByCol = Array.from({ length: nCols }, () => []);
+    section.nodes.forEach(n => nodesByCol[col(n.id)].push(n.id));
+
+    for (let r = 0; r < numRows; r++) {
+      html += "<tr>";
+      for (let c = 0; c < nCols; c++) {
+        const id = nodesByCol[c].find(nid => {
+          const [lo, hi] = range(nid);
+          return lo <= r && r <= hi;
+        });
+        if (!id) {
+          const ingNode = ix.ingredients[r];
+          const feed = feedColor[ingNode.id];
+          const style = feed ? ` style="--trail-tint:${hexToRgba(feed, 0.16)}"` : "";
+          html += `<td class="void trail"${style}></td>`;
+          continue;
+        }
+        const [lo, hi] = range(id);
+        if (lo !== r) continue;
+        const node = byId[id];
+        const span = hi - lo + 1;
+
+        if (node.type === "ingredient") {
+          const parts = [];
+          if (node.qty) parts.push(`<span class="qty">${escapeHtml(node.qty)}</span>`);
+          if (node.metric) parts.push(`<span class="metric">(${escapeHtml(node.metric)})</span>`);
+          parts.push(`<span class="lbl-full">${escapeHtml(node.label)}</span>`
+                    + `<span class="lbl-short">${escapeHtml(node.short || node.label)}</span>`);
+          const note = node.note ? `<span class="note">${escapeHtml(node.note)}</span>` : "";
+          const feed = feedColor[node.id];
+          const style = feed ? ` style="--feed:${feed};--feed-tint:${hexToRgba(feed, 0.12)}"` : "";
+          html += `<td class="ing${isCarried(node) ? " carried" : ""}" data-id="${node.id}" rowspan="${span}"${style}>${parts.join(" ")}${note}</td>`;
+        } else {
+          const { action, detail } = splitLabel(node.label);
+          const finish = ix.terminals.some(t => t.id === node.id);
+          const color = opColor[node.id];
+          const style = color
+            ? ` style="--step:${color};--step-tint:${hexToRgba(color, 0.14)}"`
+            : "";
+          html += `<td class="step${finish ? " finish" : ""}" data-id="${node.id}" rowspan="${span}"${style}>`
+                + `<span class="action">${escapeHtml(action)}</span>`
+                + (detail ? `<span class="detail">${escapeHtml(detail)}</span>` : "")
+                + `</td>`;
+        }
+      }
+      html += "</tr>";
+    }
+
+    html += `</tbody></table></div></div></div>`;
+    return { html, width: total, ix };
+  }
+
+  function wireHover(root, indexes) {
+    root.querySelectorAll("td.step").forEach(td => {
+      const id = td.dataset.id;
+      const ix = indexes.find(i => i.byId[id]);
+      if (!ix) return;
+      const ids = [...ix.upstream(id)];
+      td.addEventListener("mouseenter", () => {
+        ids.forEach(x => {
+          const el = root.querySelector(`[data-id="${CSS.escape(x)}"]`);
+          if (el) el.classList.add("lit");
+        });
+        td.classList.add("lit");
+      });
+      td.addEventListener("mouseleave", () => {
+        root.querySelectorAll(".lit").forEach(el => el.classList.remove("lit"));
+      });
+    });
+  }
+
+  function render(recipe, out) {
+    const sections = recipe.sections || [];
+    const parts = sections.map((s, i) => renderSection(s, i, sections));
+    const widest = Math.max(760, ...parts.map(p => p.width));
+    const plateWidth = Math.min(1500, Math.round(widest + 76));
+
+    let html = `<div class="plate" style="max-width:${plateWidth}px">`;
+    html += `<h1>${escapeHtml(recipe.title || "Untitled")}</h1>`;
+    if (recipe.servings) html += `<p class="servings">${escapeHtml(recipe.servings)}</p>`;
+    html += `<hr class="rule-major">`;
+    parts.forEach(p => { html += p.html; });
+    html += `</div>`;
+
+    out.innerHTML = html;
+    wireHover(out, parts.map(p => p.ix));
+    out.querySelectorAll(".scroll-wrap").forEach(wrap => {
+      const scroller = wrap.querySelector(".scroller");
+      wireScrollFade(scroller, wrap);
+      scroller.addEventListener("scroll", () => {
+        scroller.classList.toggle("collapsed", scroller.scrollLeft > 2);
+      }, { passive: true });
+    });
+  }
+
+  return { render };
+})();
+
+/* =======================================================================
+   BRACKET — no cells, wired brackets converging on each step. One
+   uninterrupted set of wires per section, scrollable if wide - never
+   severed and reattached with a text stub, which would defeat the format's
+   whole reason for existing (a wire IS the proof of what feeds a step).
+======================================================================= */
+const Bracket = (() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const narrow = () => window.innerWidth <= 720;
+  const cfg = () => narrow()
+    ? { ING_W: 128, GUTTER: 22, STEM: 14, MAX_LBL: 96,  FS: 9.5  }
+    : { ING_W: 196, GUTTER: 38, STEM: 22, MAX_LBL: 168, FS: 10.5 };
+
+  function opFont(fs) { return `${fs}px ui-monospace, Menlo, monospace`; }
+  function opWidth(label, c) {
+    const { action, detail } = splitLabel(label);
+    const f = opFont(c.FS);
+    const a = measureText(action.toUpperCase(), f) + action.length * c.FS * 0.11;
+    const d = detail ? measureText(detail, f) : 0;
+    return Math.min(c.MAX_LBL, Math.max(a, d, 30));
+  }
+
+  function ingHtml(n, carried, feed) {
+    const amt = [n.qty, n.metric ? `(${n.metric})` : ""].filter(Boolean).join("  ");
+    const style = feed ? ` style="--feed:${feed};--feed-tint:${hexToRgba(feed, 0.1)}"` : "";
+    // No scroll gesture exists here (bands, not scroll) to hang a collapse
+    // trigger on, and the schematic is terse by design already - short names
+    // by default, full prose would fight the rest of the aesthetic.
+    return `<div class="ing" data-id="${escapeHtml(n.id)}"${style}>`
+         + `<span class="name">${escapeHtml(n.short || n.label)}</span>`
+         + (amt ? `<span class="amt">${escapeHtml(amt)}</span>` : "")
+         + (carried && n.note ? `<span class="from">${escapeHtml(n.note)}</span>` : "")
+         + `</div>`;
+  }
+
+  function addPath(svg, d, opId, srcId, stroke) {
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", d);
+    if (stroke) p.style.stroke = stroke;
+    p.dataset.op = opId;
+    if (srcId) p.dataset.src = srcId;
+    svg.appendChild(p);
+  }
+
+  function wireProbe(diagram, ix) {
+    diagram.querySelectorAll(".op").forEach(el => {
+      const id = el.dataset.id;
+      const lit = new Set([id, ...ix.upstream(id)]);
+      el.addEventListener("mouseenter", () => {
+        diagram.classList.add("probing");
+        diagram.querySelectorAll("[data-id]").forEach(n => n.classList.toggle("lit", lit.has(n.dataset.id)));
+        diagram.querySelectorAll("path").forEach(p => p.classList.toggle("lit", lit.has(p.dataset.op)));
+      });
+      el.addEventListener("mouseleave", () => {
+        diagram.classList.remove("probing");
+        diagram.querySelectorAll(".lit").forEach(n => n.classList.remove("lit"));
+      });
+    });
+  }
+
+  function buildSection(section, sIdx, allSections, host) {
+    const ix = indexSection(section);
+    const { byId, ops, col, maxCol } = ix;
+    const c = cfg();
+    const { opColor, feedColor } = assignStepColors(ix);
+
+    const earlier = allSections.slice(0, sIdx).map(s => s.name).filter(Boolean);
+    const carriedFromSection = n => !!(n.note && earlier.some(name => n.note.includes(name)));
+
+    const spineX = [], labelX = [];
+    for (let k = 1; k <= maxCol; k++) {
+      const prevRight = k === 1
+        ? c.ING_W
+        : labelX[k - 1] + Math.max(...ix.opsByCol(k - 1).map(o => opWidth(o.label, c)));
+      spineX[k] = prevRight + c.GUTTER;
+      labelX[k] = spineX[k] + c.STEM;
+    }
+    const lastW = maxCol >= 1 ? Math.max(...ix.opsByCol(maxCol).map(o => opWidth(o.label, c))) : 0;
+    const totalW = Math.ceil(labelX[maxCol] + lastW + 6);
+
+    let head = "";
+    if (section.name) head += `<div class="sec-name">${escapeHtml(section.name)}</div>`;
+    if (section.prep && section.prep.length) {
+      head += `<div class="prep">` + section.prep.map(p => `<span>${escapeHtml(p)}</span>`).join("") + `</div>`;
+    }
+    const wrap = document.createElement("div");
+    wrap.innerHTML = head;
+    host.appendChild(wrap);
+
+    const scrollWrap = document.createElement("div");
+    scrollWrap.className = "scroll-wrap";
+    const scroller = document.createElement("div");
+    scroller.className = "scroller";
+    scrollWrap.appendChild(scroller);
+    wrap.appendChild(scrollWrap);
+
+    const diagram = document.createElement("div");
+    diagram.className = "diagram";
+    diagram.style.width = totalW + "px";
+    diagram.innerHTML = `<div class="ings" style="width:${c.ING_W}px">`
+      + ix.ingredients.map(n => ingHtml(n, carriedFromSection(n), feedColor[n.id])).join("")
+      + `</div>`;
+    scroller.appendChild(diagram);
+
+    const ingsBox = diagram.querySelector(".ings");
+    const yOf = {};
+    ix.ingredients.forEach(n => {
+      const el = ingsBox.querySelector(`[data-id="${CSS.escape(n.id)}"]`);
+      yOf[n.id] = el.offsetTop + el.offsetHeight / 2;
+    });
+    diagram.style.height = ingsBox.offsetHeight + "px";
+
+    const anchorX = id => byId[id].type === "ingredient" ? c.ING_W : labelX[col(id)] + opWidth(byId[id].label, c);
+
+    const ordered = ops.slice().sort((a, b) => col(a.id) - col(b.id));
+    ordered.forEach(o => {
+      const ys = (o.inputs || []).map(i => yOf[i]);
+      yOf[o.id] = ys.reduce((a, b) => a + b, 0) / ys.length;
+    });
+
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("class", "wires");
+    svg.setAttribute("width", totalW);
+    svg.setAttribute("height", ingsBox.offsetHeight);
+
+    ordered.forEach(o => {
+      const sx = spineX[col(o.id)], lx = labelX[col(o.id)], oy = yOf[o.id];
+      const inputs = o.inputs || [];
+      const stroke = opColor[o.id];
+      if (inputs.length === 1) {
+        addPath(svg, `M ${anchorX(inputs[0])} ${oy} H ${lx}`, o.id, inputs[0], stroke);
+        return;
+      }
+      let top = oy, bot = oy;
+      inputs.forEach(i => {
+        const ay = yOf[i], ax = anchorX(i);
+        if (Math.abs(ay - oy) < 2) { addPath(svg, `M ${ax} ${ay} H ${lx}`, o.id, i, stroke); return; }
+        const d = oy > ay ? 1 : -1;
+        const r = Math.min(9, Math.abs(oy - ay));
+        addPath(svg, `M ${ax} ${ay} H ${sx - r} Q ${sx} ${ay} ${sx} ${ay + d * r}`, o.id, i, stroke);
+        top = Math.min(top, ay + d * r);
+        bot = Math.max(bot, ay + d * r);
+      });
+      addPath(svg, `M ${sx} ${top} V ${bot}`, o.id, null, stroke);
+      addPath(svg, `M ${sx} ${oy} H ${lx}`, o.id, null, stroke);
+    });
+    diagram.appendChild(svg);
+
+    ops.forEach(o => {
+      const { action, detail } = splitLabel(o.label);
+      const el = document.createElement("div");
+      el.className = "op" + (ix.terminals.some(t => t.id === o.id) ? " finish" : "");
+      el.dataset.id = o.id;
+      el.style.left = labelX[col(o.id)] + "px";
+      el.style.top = yOf[o.id] + "px";
+      el.style.width = Math.ceil(opWidth(o.label, c) + 4) + "px";
+      el.style.fontSize = c.FS + "px";
+      el.style.color = opColor[o.id];
+      el.innerHTML = escapeHtml(action) + (detail ? `<span class="detail">${escapeHtml(detail)}</span>` : "");
+      diagram.appendChild(el);
+    });
+
+    wireProbe(diagram, ix);
+    wireScrollFade(scroller, scrollWrap);
+  }
+
+  function render(recipe, out) {
+    const sheet = document.createElement("div");
+    sheet.className = "sheet";
+    sheet.innerHTML = `<h1>${escapeHtml(recipe.title || "Untitled")}</h1>`
+      + (recipe.servings ? `<p class="servings">${escapeHtml(recipe.servings)}</p>` : "")
+      + `<hr class="rule">`;
+    out.appendChild(sheet);
+    (recipe.sections || []).forEach((s, i) => buildSection(s, i, recipe.sections, sheet));
+  }
+
+  return { render };
+})();
+
+/* =======================================================================
+   RIBBON — physical merging bands. One shared horizontal scroll across every
+   section; ingredient labels sit in a sticky left rail that progressively
+   replaces each row's label with whatever intermediate it has become, as
+   that merge point scrolls past.
+======================================================================= */
+const Ribbon = (() => {
+  const narrow = () => window.innerWidth <= 720;
+  const cfg = () => narrow()
+    ? { GUTTER: 24, FS: 11.5, STROKE: 7 }
+    : { GUTTER: 34, FS: 12.5, STROKE: 10 };
+
+  function pillFont(fs) { return `600 ${fs}px ui-sans-serif, system-ui, sans-serif`; }
+  const ING_FONT = '14px ui-sans-serif, system-ui, sans-serif';
+  function ingredientText(n) {
+    return [n.qty, n.metric ? `(${n.metric})` : "", n.label].filter(Boolean).join(" ");
+  }
+  // One ingredient-column width for the whole recipe, not per-section, so
+  // every section's sticky rail lines up and the shared scroll stays in sync.
+  function sharedIngWidth(ixs) {
+    const widest = Math.max(...ixs.flatMap(ix =>
+      ix.ingredients.map(n => measureText(ingredientText(n), ING_FONT))
+    ));
+    const lo = narrow() ? 96 : 150, hi = narrow() ? 180 : 250;
+    return Math.max(lo, Math.min(hi, widest / 2.1));
+  }
+  // The collapsed width only ever needs to fit a short name (or an op's
+  // already-short action word) - no wrap allowance needed, these are single
+  // short tokens by design.
+  function sharedShortIngWidth(ixs) {
+    const widest = Math.max(...ixs.flatMap(ix =>
+      ix.ingredients.map(n => measureText(n.short || n.label, ING_FONT))
+    ));
+    const lo = narrow() ? 64 : 84, hi = narrow() ? 130 : 160;
+    return Math.max(lo, Math.min(hi, widest + 24));
+  }
+
+  function pillSize(label, c) {
+    const { action, detail } = splitLabel(label);
+    const w = Math.max(
+      measureText(action, pillFont(c.FS)),
+      detail ? measureText(detail, `500 ${c.FS - 2}px ui-sans-serif, system-ui, sans-serif`) : 0
+    );
+    return { w: Math.max(56, w + 30), h: detail ? 48 : 34 };
+  }
+
+  function ribbonPath(x1, y1, x2, y2) {
+    const dx = Math.max(28, (x2 - x1) * 0.55);
+    return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+  }
+
+  function railText(n) {
+    return [n.qty, n.metric ? `(${n.metric})` : ""].filter(Boolean).join("  ");
+  }
+
+  function buildSection(section, sIdx, allSections, ix, ING_W, host, lineages, ribbons) {
+    const { byId, ops, col, maxCol, consumedBy } = ix;
+    const { opColor, feedColor } = assignStepColors(ix);
+    const c = cfg();
+
+    const earlier = allSections.slice(0, sIdx).map(s => s.name).filter(Boolean);
+    const carriedNote = n => (n.note && earlier.some(name => n.note.includes(name))) ? n.note : null;
+
+    const pillW = {};
+    ops.forEach(o => { pillW[o.id] = pillSize(o.label, c).w; });
+
+    // Canvas-local column positions - start at 0, NOT offset by ING_W. The
+    // sticky rail supplies that offset visually via the flex layout, so the
+    // canvas's own coordinate space starts fresh at its own left edge.
+    const colX = [0];
+    for (let k = 1; k <= maxCol; k++) {
+      colX[k] = (k === 1 ? 0 : colX[k - 1] + Math.max(40, ...ix.opsByCol(k - 1).map(o => pillW[o.id]))) + c.GUTTER;
+    }
+    const lastColW = maxCol >= 1 ? Math.max(40, ...ix.opsByCol(maxCol).map(o => pillW[o.id])) : 0;
+    const canvasW = Math.ceil(colX[maxCol] + lastColW + 20);
+
+    let head = "";
+    if (section.name) head += `<div class="sec-name">${escapeHtml(section.name)}</div>`;
+    if (section.prep && section.prep.length) {
+      head += `<div class="prep">` + section.prep.map(p => `<span>${escapeHtml(p)}</span>`).join("") + `</div>`;
+    }
+    const secBlock = document.createElement("div");
+    secBlock.className = "sec-block";
+    secBlock.innerHTML = head;
+    host.appendChild(secBlock);
+
+    const row = document.createElement("div");
+    row.className = "row";
+    // A flex container doesn't auto-grow to its children's combined intrinsic
+    // width inside a block-level parent - it defaults to the parent's
+    // available width instead. Without this, .row silently clamps to the
+    // viewport width, canvas gets squeezed, and sticky has no room to travel.
+    row.style.width = (ING_W + canvasW) + "px";
+    const ingsSticky = document.createElement("div");
+    ingsSticky.className = "ings-sticky";
+    ingsSticky.style.width = ING_W + "px";
+    ingsSticky.innerHTML = ix.ingredients.map(n =>
+      `<div class="ing-row" data-id="${escapeHtml(n.id)}">`
+      + `<span class="r-name">${escapeHtml(n.label)}</span>`
+      + `<span class="r-amt">${escapeHtml(railText(n))}</span>`
+      + `</div>`
+    ).join("");
+    const canvas = document.createElement("div");
+    canvas.className = "canvas";
+    canvas.style.width = canvasW + "px";
+    row.appendChild(ingsSticky);
+    row.appendChild(canvas);
+    secBlock.appendChild(row);
+
+    // Lock each row's height to what the ingredient's own (usually longest)
+    // content needs, before the rail ever swaps text. Every Y position below
+    // - ribbons, pills, the row's own vertical center - is computed once from
+    // this layout; if a later swap to a shorter op label were allowed to
+    // shrink the row, everything above it would silently drift out of
+    // alignment with the canvas it hasn't moved.
+    ix.ingredients.forEach(n => {
+      const el = ingsSticky.querySelector(`[data-id="${CSS.escape(n.id)}"]`);
+      el.style.height = el.offsetHeight + "px";
+      el.style.overflow = "hidden";
+    });
+
+    const yOf = {};
+    ix.ingredients.forEach(n => {
+      const el = ingsSticky.querySelector(`[data-id="${CSS.escape(n.id)}"]`);
+      yOf[n.id] = el.offsetTop + el.offsetHeight / 2;
+    });
+    row.style.minHeight = ingsSticky.offsetHeight + "px";
+    canvas.style.height = ingsSticky.offsetHeight + "px";
+
+    const ordered = ops.slice().sort((a, b) => col(a.id) - col(b.id));
+    ordered.forEach(o => {
+      const ys = (o.inputs || []).map(i => yOf[i]);
+      yOf[o.id] = ys.reduce((a, b) => a + b, 0) / ys.length;
+    });
+
+    const anchorX = id => byId[id].type === "ingredient" ? 0 : colX[col(id)] + pillW[id];
+
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("class", "ribbons");
+    svg.setAttribute("width", canvasW);
+    svg.setAttribute("height", ingsSticky.offsetHeight);
+
+    ordered.forEach(o => {
+      const targetX = colX[col(o.id)];
+      const oy = yOf[o.id];
+      (o.inputs || []).forEach(inId => {
+        const p = document.createElementNS(NS, "path");
+        const x1 = anchorX(inId), y1 = yOf[inId];
+        p.setAttribute("d", ribbonPath(x1, y1, targetX, oy));
+        p.setAttribute("stroke", opColor[o.id]);
+        p.setAttribute("stroke-width", c.STROKE);
+        p.setAttribute("opacity", "0.62");
+        svg.appendChild(p);
+        // Kept live so the ribbon can be redrawn starting at the scroll
+        // frontier once its true origin scrolls behind the sticky rail -
+        // the flow should always look like it's coming out of the rail,
+        // never like a floating segment with no visible source.
+        ribbons.push({ el: p, x1, y1, x2: targetX, y2: oy });
+      });
+    });
+    canvas.appendChild(svg);
+
+    ops.forEach(o => {
+      const { action, detail } = splitLabel(o.label);
+      const finish = ix.terminals.some(t => t.id === o.id);
+      const { h } = pillSize(o.label, c);
+      const el = document.createElement("div");
+      el.className = "pill" + (finish ? " finish" : "");
+      el.style.left = colX[col(o.id)] + "px";
+      el.style.top = yOf[o.id] + "px";
+      el.style.width = pillW[o.id] + "px";
+      el.style.minHeight = h + "px";
+      el.style.background = finish ? "" : opColor[o.id];
+      if (finish) el.style.setProperty("--ring", opColor[o.id]);
+      el.innerHTML = escapeHtml(action) + (detail ? `<span class="detail">${escapeHtml(detail)}</span>` : "");
+      canvas.appendChild(el);
+    });
+
+    // Lineage per row: ingredient, then each op it's progressively consumed
+    // into, threshold = the canvas-local X at which that pill has fully
+    // scrolled past the sticky rail (its right edge), so the rail label swaps
+    // exactly as the real pill disappears from view - a continuous handoff,
+    // not an arbitrary cutoff.
+    ix.ingredients.forEach(n => {
+      const el = ingsSticky.querySelector(`[data-id="${CSS.escape(n.id)}"]`);
+      const stages = [{
+        name: n.label, shortName: n.short || n.label, amt: railText(n), isOp: false, isFinish: false,
+        feed: feedColor[n.id] || null, threshold: 0
+      }];
+      let curId = n.id;
+      while (consumedBy[curId] !== undefined) {
+        const opId = consumedBy[curId];
+        const opNode = byId[opId];
+        const finish = ix.terminals.some(t => t.id === opId);
+        const threshold = colX[col(opId)] + pillW[opId];
+        stages.push({
+          name: splitLabel(opNode.label).action, amt: "", isOp: true, isFinish: finish,
+          feed: finish ? null : feedColor[opId], threshold
+        });
+        curId = opId;
+      }
+      lineages.push({ el, stages });
+    });
+  }
+
+  function applyScroll(lineages, scrollLeft, collapsed) {
+    lineages.forEach(({ el, stages }) => {
+      let current = stages[0];
+      for (const s of stages) { if (scrollLeft >= s.threshold) current = s; else break; }
+      const showShort = collapsed && !current.isOp;
+      const name = showShort ? current.shortName : current.name;
+      const amt = showShort ? "" : current.amt;
+      // name alone isn't a safe cache key: a short name can coincidentally
+      // equal the full label (e.g. "hot sauce" either way), which would
+      // otherwise mask the amt-line change that still needs to happen.
+      const key = name + "|" + amt + "|" + current.threshold;
+      if (el.dataset.shown === key) return;
+      el.dataset.shown = key;
+      el.querySelector(".r-name").textContent = name;
+      el.querySelector(".r-amt").textContent = amt;
+      el.classList.toggle("is-op", current.isOp);
+      el.classList.toggle("is-finish", current.isFinish);
+      el.style.setProperty("--feed", current.feed || "var(--hair)");
+      el.style.setProperty("--feed-tint", current.feed ? hexToRgba(current.feed, 0.1) : "transparent");
+    });
+  }
+
+  // A ribbon whose true source has scrolled behind the sticky rail would
+  // otherwise look like it's floating with no visible origin. Once that
+  // happens (x1 < scrollLeft) but its target pill is still ahead (x2 >
+  // scrollLeft), redraw it starting exactly at the scroll frontier - the
+  // rail's right edge - so it always reads as flowing out of the rail.
+  // Untouched once the target itself has scrolled past too; restored to its
+  // true path if the user scrolls back left.
+  function updateRibbons(ribbons, scrollLeft) {
+    ribbons.forEach(r => {
+      const clampedX1 = (r.x1 < scrollLeft && r.x2 > scrollLeft) ? scrollLeft : r.x1;
+      if (r.el.dataset.drawnAt === String(clampedX1)) return;
+      r.el.dataset.drawnAt = String(clampedX1);
+      r.el.setAttribute("d", ribbonPath(clampedX1, r.y1, r.x2, r.y2));
+    });
+  }
+
+  function render(recipe, out) {
+    const sections = recipe.sections || [];
+    const ixs = sections.map(s => indexSection(s));
+    const fullIngW = sections.length ? sharedIngWidth(ixs) : 150;
+    const shortIngW = sections.length ? sharedShortIngWidth(ixs) : 90;
+
+    const sheet = document.createElement("div");
+    sheet.className = "sheet";
+    const head = document.createElement("div");
+    head.className = "head";
+    head.innerHTML = `<h1>${escapeHtml(recipe.title || "Untitled")}</h1>`
+      + (recipe.servings ? `<p class="servings">${escapeHtml(recipe.servings)}</p>` : "");
+    sheet.appendChild(head);
+    out.appendChild(sheet);
+
+    const scrollWrap = document.createElement("div");
+    scrollWrap.className = "scroll-wrap";
+    const scroller = document.createElement("div");
+    scroller.className = "scroller";
+    scrollWrap.appendChild(scroller);
+    sheet.appendChild(scrollWrap);
+
+    const lineages = [];
+    const ribbons = [];
+    sections.forEach((s, i) => buildSection(s, i, sections, ixs[i], fullIngW, scroller, lineages, ribbons));
+
+    // Once the user starts scrolling, the full ingredient prose has done its
+    // job (shown at rest) and is pure overhead - collapse the rail to short
+    // names and hand that reclaimed width to the diagram. Row widths are
+    // captured once, before any collapsing, so they can be recomputed exactly
+    // for either state instead of drifting.
+    const stickyEls = Array.from(scroller.querySelectorAll(".ings-sticky"));
+    const rowEls = Array.from(scroller.querySelectorAll(".row"));
+    const rowCanvasWidths = rowEls.map(r => r.offsetWidth - fullIngW);
+    let collapsed = false;
+    const applyCollapse = on => {
+      if (on === collapsed) return;
+      collapsed = on;
+      const w = on ? shortIngW : fullIngW;
+      stickyEls.forEach(el => { el.style.width = w + "px"; });
+      rowEls.forEach((r, i) => { r.style.width = (rowCanvasWidths[i] + w) + "px"; });
+    };
+
+    const update = () => {
+      applyCollapse(scroller.scrollLeft > 2);
+      const max = scroller.scrollWidth - scroller.clientWidth;
+      scrollWrap.classList.toggle("right-fade", scroller.scrollLeft < max - 2);
+      scrollWrap.classList.toggle("left-fade", scroller.scrollLeft > 2);
+      applyScroll(lineages, scroller.scrollLeft, collapsed);
+      updateRibbons(ribbons, scroller.scrollLeft);
+    };
+    scroller.scrollLeft = 0;
+    scroller.addEventListener("scroll", update, { passive: true });
+    requestAnimationFrame(() => { scroller.scrollLeft = 0; update(); });
+  }
+
+  return { render };
+})();
+
+/* ============================== Wiring ============================== */
+const VIEWS = { plate: Plate, ribbon: Ribbon, bracket: Bracket };
+
+let currentView = "plate";
+let currentKey = RECIPE_KEYS[0];
+let resizeTimer;
+
+function draw() {
+  const out = document.getElementById("out");
+  out.className = "view view-" + currentView;
+  out.innerHTML = "";
+  VIEWS[currentView].render(RECIPES[currentKey], out);
+}
+
+const recipePicker = document.getElementById("recipePicker");
+recipePicker.innerHTML = RECIPE_KEYS
+  .map(k => `<option value="${k}">${escapeHtml(RECIPES[k].title)}</option>`)
+  .join("");
+recipePicker.value = currentKey;
+recipePicker.addEventListener("change", () => { currentKey = recipePicker.value; draw(); });
+
+const viewPicker = document.getElementById("viewPicker");
+viewPicker.value = currentView;
+viewPicker.addEventListener("change", () => { currentView = viewPicker.value; draw(); });
+
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(draw, 160);
+});
+
+draw();
+</script>
+</body>
+</html>
